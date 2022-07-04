@@ -28,7 +28,9 @@ SOURCES += \
 
 HEADERS += \
     mainwindow.h \
-    qcustomplot.h
+    qcustomplot.h \
+    signals_j1939.h \
+    signals_obdii.h
 
 FORMS += \
     mainwindow.ui

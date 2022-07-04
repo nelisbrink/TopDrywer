@@ -1,20 +1,27 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "signals_j1939.h"
+#include "signals_obdii.h"
 
 //Global variables
-QList<QList<double>> qlLogValuesJ1939; //TODO back to float?
-QList<QList<double>> qlLogTimestampsJ1939; //TODO back to qint64?
-QList<QList<double>> qlLogValuesOBDII;
-QList<QList<double>> qlLogTimestampsOBDII;
+QList<QList<double>> logValuesLiveJ1939; //TODO back to float?
+QList<QList<double>> logTimestampsLiveJ1939; //TODO back to qint64?
+QList<QList<double>> logValuesLiveOBDII;
+QList<QList<double>> logTimestampsLiveOBDII;
+QList<QList<double>> logValuesLog;
+QList<QList<double>> logTimestampsLog;
 //Generics to assign to
-QFile *fileIn;
+QFile *fileInLive;
 QFile *fileOut;
 QTimer * timer;
 QGridLayout *gridLive;
 QGridLayout *gridLog;
 quint16 wSignalCountLive = 0U;
 quint16 wSignalCountLog = 0U;
-QHash<quint16,quint16> qhGraphIdxMap;
+QHash<quint16,quint16> graphIdxMapLive;
+QHash<quint16,quint16> graphIdxMapLog;
+QHash<quint16,quint16> sigIdxMapLive;
+QHash<quint16,quint16> sigIdxMapLog;
 //
 quint16 wJ1939SignalCount = 0U;
 quint16 wOBDIISignalCount = 0U;
@@ -62,9 +69,9 @@ MainWindow::MainWindow(QWidget *parent)
     fileJ1939in = new QFile("../../../../TopDrywer/example_logs/j1939_log_example.csv");
     fileOBDIIin = new QFile("../../../../TopDrywer/example_logs/obdii_log_example.csv");
     fileCANBin = new QFile("../../../../TopDrywer/example_logs/canb_log_example.csv");
-    fileJ1939out = new QFile("../../../../TopDrywer/logs_out/" + QString(APP_VERSION) + "j1939_log_out.csv");
-    fileOBDIIout = new QFile("../../../../TopDrywer/logs_out/" + QString(APP_VERSION) + "obdii_log_out.csv");
-    fileCANBout = new QFile("../../../../TopDrywer/logs_out/" + QString(APP_VERSION) + "canb_log_out.csv");
+    fileJ1939out = new QFile("../../../../TopDrywer/logs_out/j1939_log_out_v" + QString(APP_VERSION).replace(".","_") + ".csv");
+    fileOBDIIout = new QFile("../../../../TopDrywer/logs_out/obdii_log_out_v" + QString(APP_VERSION) + ".csv");
+    fileCANBout = new QFile("../../../../TopDrywer/logs_out/canb_log_out_v" + QString(APP_VERSION) + ".csv");
 
     //Set up Activate checkboxes
     ui->cbActivate->addItem("J1939");
@@ -74,18 +81,53 @@ MainWindow::MainWindow(QWidget *parent)
     //Set up graphs
     ui->widgetPlotLive->xAxis->setLabel("Timestamp");
     ui->widgetPlotLive->xAxis->setTickLabelRotation(90);
+    ui->widgetPlotLive->xAxis2->setTickLabelRotation(90);
     QSharedPointer<QCPAxisTickerDateTime> dateTimeTicker2(new QCPAxisTickerDateTime);
     ui->widgetPlotLive->xAxis->setTicker(dateTimeTicker2);
+    ui->widgetPlotLive->xAxis2->setTicker(dateTimeTicker2);
     dateTimeTicker2->setDateTimeFormat("h:m:s.z");
+    ui->widgetPlotLive->yAxis->setTickPen(QPen(Qt::blue));
+    ui->widgetPlotLive->yAxis2->setTickPen(QPen(Qt::red));
+//    QFont legendFont = font();  // start out with MainWindow's font..
+//    legendFont.setPointSize(6); // and make a bit smaller for legend
+//    ui->widgetPlotLive->legend->setFont(legendFont);
+//    ui->widgetPlotLive->legend->setVisible(true);
+    //
+//    QCPLayoutGrid *subLayout = new QCPLayoutGrid;
+//    QCPLayoutElement *dummyElement = new QCPLayoutElement;
+//    ui->widgetPlotLive->plotLayout()->addElement(0, 1, subLayout); // add sub-layout in the cell to the right of the main axis rect
+//    ui->widgetPlotLive->plotLayout()->setColumnStretchFactor(1,0.01);
+//    subLayout->addElement(0, 0, ui->widgetPlotLive->legend); // add legend
+//    subLayout->addElement(1, 0, dummyElement); // add dummy element below legend
+//    subLayout->setRowStretchFactor(0, 0.01); // make legend cell (in row 0) take up as little vertical space as possible
+    //
 
     ui->widgetPlotLog->xAxis->setLabel("Timestamp");
     ui->widgetPlotLog->xAxis->setTickLabelRotation(90);
+    ui->widgetPlotLog->xAxis2->setTickLabelRotation(90);
     QSharedPointer<QCPAxisTickerDateTime> dateTimeTicker(new QCPAxisTickerDateTime);
     ui->widgetPlotLog->xAxis->setTicker(dateTimeTicker);
+    ui->widgetPlotLog->xAxis2->setTicker(dateTimeTicker2);
     dateTimeTicker->setDateTimeFormat("h:m:s.z");
+    ui->widgetPlotLog->yAxis->setTickPen(QPen(Qt::blue));
+    ui->widgetPlotLog->yAxis2->setTickPen(QPen(Qt::red));
+//    ui->widgetPlotLog->legend->setFont(legendFont);
+//    ui->widgetPlotLog->legend->setVisible(true);
+    //
+//    QCPLayoutGrid *subLayout2 = new QCPLayoutGrid;
+//    QCPLayoutElement *dummyElement2 = new QCPLayoutElement;
+//    ui->widgetPlotLog->plotLayout()->addElement(0, 1, subLayout2); // add sub-layout in the cell to the right of the main axis rect
+//    ui->widgetPlotLog->plotLayout()->setColumnStretchFactor(1,0.01);
+//    subLayout2->addElement(0, 0, ui->widgetPlotLog->legend); // add legend
+//    subLayout2->addElement(1, 0, dummyElement2); // add dummy element below legend
+//    subLayout2->setRowStretchFactor(0, 0.01); // make legend cell (in row 0) take up as little vertical space as possible
+    //
 
     gridLive = new QGridLayout;
     ui->scrollAreaLiveWidget->setLayout(gridLive);
+
+    gridLog = new QGridLayout;
+    ui->scrollAreaLogWidget->setLayout(gridLog);
 
     handleActivate(); //Call the default which is J1939
 
@@ -107,7 +149,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::populateLiveTable()
+void MainWindow::clearLiveTable()
 {
     //Clear the grid
     while(gridLive->count())
@@ -118,33 +160,19 @@ void MainWindow::populateLiveTable()
             delete widget;
         }
     }
-    //Populate the grid with dummy values
-    for(quint16 i=0;i<wSignalCountLive;i++)
-    {
-        QCheckBox *sigCheck = new QCheckBox("", ui->scrollAreaLiveWidget);
-        QLineEdit *sigVal = new QLineEdit(0,ui->scrollAreaLiveWidget);
-        QLabel *sigUnits = new QLabel("",ui->scrollAreaLiveWidget);
-        gridLive->addWidget(sigCheck,i,0);
-        gridLive->addWidget(sigVal,i,1);
-        gridLive->addWidget(sigUnits,i,2);
-        //Connect all the signals' checkbox events
-        connect(sigCheck,&QCheckBox::stateChanged,this, [=](){
-            checkboxClicked(i);
-        });
-    }
 }
 
-void MainWindow::populateLogTable()
+void MainWindow::clearLogTable()
 {
-    gridLog = new QGridLayout;
-    //Populate the grid with dummy values
-    for(quint16 i=0;i<wSignalCountLog;i++)
+    //Clear the grid
+    while(gridLog->count())
     {
-        QCheckBox *sigCheck = new QCheckBox("", ui->scrollAreaLogWidget);
-        gridLog->addWidget(sigCheck,i,0);
+        QWidget* widget = gridLog->itemAt(0)->widget();
+        if(widget) {
+            gridLog->removeWidget(widget);
+            delete widget;
+        }
     }
-//    logGrid->setColumnMinimumWidth(2,80); //TODO do this with a stretch
-    ui->scrollAreaLiveWidget->setLayout(gridLog);
 }
 
 void MainWindow::connectSignalsAndSlots()
@@ -170,7 +198,7 @@ void::MainWindow::handleLog()
         if(fileOut->open(QFile::WriteOnly | QFile::Truncate))
         {
             QTextStream stream(fileOut);
-            stream << "Timestamp," << "CanId," << "DataBytes" << "\n";
+            stream << "Timestamp," << "CanId," << "IDE," << "DataBytes"; //IDE stands for ID EXTENDED
         }
         else
         {
@@ -189,11 +217,12 @@ void MainWindow::handleActivate()
     QByteArray qbCmd;
 
     //Stop the virtual read
+    bVirtualReadActive = false;
     ui->pbVirtualRead->setText("Start");
     timer->stop();
-    if(fileIn)
+    if(fileInLive)
     {
-        fileIn->close();
+        fileInLive->close();
     }
     //Stop the logging
     ui->pbLog->setText("Start");
@@ -206,7 +235,7 @@ void MainWindow::handleActivate()
         ui->tabWidgetMode->setTabText(0, "OBDII");
         qbCmd = "O"; //This is letter O (0x4F) for OBDII not zero
         eMode = MODE_OBDII;
-        fileIn = fileOBDIIin;
+        fileInLive = fileOBDIIin;
         fileOut = fileOBDIIout;
         timer->setInterval(40); //TODO change when using own log file, then 10ms or whatever we set in the serialCANrelay
         wSignalCountLive = wOBDIISignalCount;
@@ -216,7 +245,7 @@ void MainWindow::handleActivate()
         ui->tabWidgetMode->setTabText(0, "CANB");
         qbCmd = "C"; //This is letter C (0x43) for CANB not zero
         eMode = MODE_CANB;
-        fileIn = fileCANBin;
+        fileInLive = fileCANBin;
         fileOut = fileCANBout;
         timer->setInterval(40);
         wSignalCountLive = wCANBSignalCount;
@@ -226,7 +255,7 @@ void MainWindow::handleActivate()
         ui->tabWidgetMode->setTabText(0, "J1939");
         qbCmd = "J"; //This is letter J (0x4A) for J1939
         eMode = MODE_J1939;
-        fileIn = fileJ1939in;
+        fileInLive = fileJ1939in;
         fileOut = fileJ1939out;
         timer->setInterval(5);
         wSignalCountLive = wJ1939SignalCount;
@@ -243,10 +272,11 @@ void MainWindow::handleActivate()
         }
     }
     //Set up the table
-    populateLiveTable();
-    //Clear the graph
+    clearLiveTable();
+    //Clear the graphs
     ui->widgetPlotLive->clearGraphs();
-    qhGraphIdxMap.clear();
+    graphIdxMapLive.clear();
+    sigIdxMapLive.clear();
 }
 
 void MainWindow::toggleVirtualRead()
@@ -255,12 +285,12 @@ void MainWindow::toggleVirtualRead()
     if(bVirtualReadActive)
     {
         ui->pbVirtualRead->setText("Stop");
-        if (!fileIn->open(QIODevice::ReadOnly)) {
-            qDebug() << fileIn->errorString();
+        if (!fileInLive->open(QIODevice::ReadOnly)) {
+            qDebug() << fileInLive->errorString();
         }
         else
         {
-            fileIn->readLine(); //Read the header
+            fileInLive->readLine(); //Read the header
         }
         timer->start();
     }
@@ -268,13 +298,73 @@ void MainWindow::toggleVirtualRead()
     {
         ui->pbVirtualRead->setText("Start");
         timer->stop();
-        fileIn->close();
+        fileInLive->close();
     }
 }
 
 void MainWindow::selectLogFile()
 {
-
+    QString fileName = QFileDialog::getOpenFileName(this,tr("Open Log file"), "/Users/nelissimo/Library/CloudStorage/OneDrive-SharedLibraries-CreoX/CreoX - 029_TOPDRYWER/Code/TopDrywer/TopDrywer/logs_out/", tr("CSV Files (*.csv)"));
+    QFile *file = new QFile(fileName);
+    if (!file->open(QIODevice::ReadOnly)) {
+        qDebug() << file->errorString();
+    }
+    else
+    {
+        ui->pbLogFile->hide();
+        QProgressBar *progressBar = new QProgressBar();
+        ui->groupBoxFile->layout()->addWidget(progressBar);
+        QList<QByteArray> completeLogs = file->readAll().split('\n'); //Read the header too
+        quint32 lineCount = completeLogs.count();
+        QByteArray qbCanId;
+        QByteArray qbData;
+        double dTimestamp;
+        bool bExt;
+        quint32 lCanId;
+        quint16 wCanId;
+        clearLogTable();
+        for(quint32 i = 1U;i < lineCount;i++) //NOTE Assuming less than 65535 signals in a csv file we logged, starting at 1 to skip the header
+        {
+            QList<QByteArray> line = completeLogs[i].split(',');
+            dTimestamp = line[0].toDouble();
+            qbCanId = QByteArray::fromHex(line[1]);
+            bExt = line[2].toUShort();
+            qbData = QByteArray::fromHex(line[3]);
+            if(bExt)
+            {
+                lCanId = qFromBigEndian<quint32>(qbCanId);
+                parseLogExtFrame(dTimestamp, lCanId, qbData);
+            }
+            else
+            {
+                wCanId = qFromBigEndian<quint16>(qbCanId);
+                parseLogStdFrame(dTimestamp, wCanId, qbData);
+            }
+            progressBar->setValue((i+1)/completeLogs.count());
+        }
+        //Update the GUI with new data
+        quint16 wSignalCountLocal = (eMode == MODE_J1939) ? wJ1939SignalCount : wOBDIISignalCount;
+        for(quint32 i = 0U;i < wSignalCountLocal;i++) //NOTE Assuming less than 65535 signals in a csv file we logged, starting at 1 to skip the header
+        {
+            if(sigIdxMapLog.contains(i))
+            {
+                QCheckBox *sigCheck = new QCheckBox((eMode == MODE_J1939) ? (sJ1939_Signals[i].cName) : (sOBDII_Signals[i].cName), ui->scrollAreaLogWidget);
+                gridLog->addWidget(sigCheck,sigIdxMapLog[i],0);
+                connect(sigCheck,&QCheckBox::stateChanged,this, [=](){
+                    checkboxClickedLog(sigIdxMapLog[i]);
+                });
+            }
+        }
+        //
+        ui->groupBoxFile->layout()->removeWidget(progressBar);
+        delete progressBar;
+        ui->pbLogFile->show();
+        QFileInfo fileInfo(*file);
+        QString filename(fileInfo.fileName());
+        ui->pbLogFile->setText(filename);
+        file->close();
+        delete file;
+    }
 }
 
 void MainWindow::openSerialPort()
@@ -317,28 +407,106 @@ void MainWindow::handleConnectSerial()
     }
 }
 
-void MainWindow::checkboxClicked(quint16 _wSigIdx)
+void MainWindow::checkboxClickedLive(quint16 _wSigIdx)
 {
     Qt::CheckState cbState = static_cast<QCheckBox*>(gridLive->itemAtPosition(_wSigIdx,0)->widget())->checkState();
     if(cbState == Qt::Unchecked)
     {
         //Update all the other indexes of still plotted graphs
-        quint16 wRemovedGraphIdx = qhGraphIdxMap.value(_wSigIdx);
-        foreach(auto key, qhGraphIdxMap.keys())
+        quint16 wRemovedGraphIdx = graphIdxMapLive.value(_wSigIdx);
+        foreach(auto key, graphIdxMapLive.keys())
         {
-            if(qhGraphIdxMap[key] > wRemovedGraphIdx)
+            if(graphIdxMapLive[key] > wRemovedGraphIdx)
             {
-                qhGraphIdxMap[key] = qhGraphIdxMap.value(key) - 1;
+                graphIdxMapLive[key] = graphIdxMapLive.value(key) - 1;
             }
         }
-        ui->widgetPlotLive->removeGraph(qhGraphIdxMap.value(_wSigIdx));
-        qhGraphIdxMap.remove(_wSigIdx);
+        ui->widgetPlotLive->removeGraph(graphIdxMapLive.value(_wSigIdx));
+        graphIdxMapLive.remove(_wSigIdx);
+        if(ui->widgetPlotLive->graphCount() < 2)
+        {
+            ui->widgetPlotLive->xAxis2->setVisible(false);
+            ui->widgetPlotLive->yAxis2->setVisible(false);
+        }
         ui->widgetPlotLive->replot();
     }
     else
     {
-         qhGraphIdxMap.insert(_wSigIdx, ui->widgetPlotLive->graphCount()); //Index before we increment with addGraph
-         ui->widgetPlotLive->addGraph(); //Now add the graph at this index
+         graphIdxMapLive.insert(_wSigIdx, ui->widgetPlotLive->graphCount()); //Index before we increment with addGraph
+         if(ui->widgetPlotLive->graphCount() == 0)
+         {
+            ui->widgetPlotLive->addGraph(ui->widgetPlotLive->xAxis, ui->widgetPlotLive->yAxis); //Now add the graph at this index
+            ui->widgetPlotLive->graph(ui->widgetPlotLive->graphCount() - 1)->setPen(QPen(Qt::blue));
+         }
+         else //Add to second axis
+         {
+             ui->widgetPlotLive->addGraph(ui->widgetPlotLive->xAxis2, ui->widgetPlotLive->yAxis2); //Now add the graph at this index
+             ui->widgetPlotLive->graph(ui->widgetPlotLive->graphCount() - 1)->setPen(QPen(Qt::red));
+             ui->widgetPlotLive->xAxis2->setVisible(true);
+             ui->widgetPlotLive->yAxis2->setVisible(true);
+         }
+    }
+}
+
+void MainWindow::checkboxClickedLog(quint16 _wSigIdx)
+{
+    Qt::CheckState cbState = static_cast<QCheckBox*>(gridLog->itemAtPosition(_wSigIdx,0)->widget())->checkState();
+    if(cbState == Qt::Unchecked)
+    {
+        //Update all the other indexes of still plotted graphs
+        quint16 wRemovedGraphIdx = graphIdxMapLog.value(_wSigIdx);
+        foreach(auto key, graphIdxMapLog.keys())
+        {
+            if(graphIdxMapLog[key] > wRemovedGraphIdx)
+            {
+                graphIdxMapLog[key] = graphIdxMapLog.value(key) - 1;
+            }
+        }
+        ui->widgetPlotLog->removeGraph(graphIdxMapLog.value(_wSigIdx));
+        graphIdxMapLog.remove(_wSigIdx);
+        if(ui->widgetPlotLog->graphCount() < 2)
+        {
+            ui->widgetPlotLog->xAxis2->setVisible(false);
+            ui->widgetPlotLog->yAxis2->setVisible(false);
+        }
+        ui->widgetPlotLog->replot();
+    }
+    else
+    {
+         graphIdxMapLog.insert(_wSigIdx, ui->widgetPlotLog->graphCount()); //Index before we increment with addGraph
+         if(ui->widgetPlotLog->graphCount() == 0)
+         {
+            ui->widgetPlotLog->addGraph(ui->widgetPlotLog->xAxis, ui->widgetPlotLog->yAxis); //Now add the graph at this index
+             ui->widgetPlotLog->graph(ui->widgetPlotLog->graphCount() - 1)->setPen(QPen(Qt::blue));
+         }
+         else
+         {
+             ui->widgetPlotLog->addGraph(ui->widgetPlotLog->xAxis2, ui->widgetPlotLog->yAxis2); //Now add the graph at this index
+             ui->widgetPlotLog->graph(ui->widgetPlotLog->graphCount() - 1)->setPen(QPen(Qt::red));
+             ui->widgetPlotLog->xAxis2->setVisible(true);
+             ui->widgetPlotLog->yAxis2->setVisible(true);
+         }
+         //Update graph
+        ui->widgetPlotLog->graph(graphIdxMapLog.value(_wSigIdx))->setData(logTimestampsLog[_wSigIdx],logValuesLog[_wSigIdx]);
+        ui->widgetPlotLog->graph(graphIdxMapLog.value(_wSigIdx))->setName(eMode == MODE_J1939 ? sJ1939_Signals[sigIdxMapLog.key(_wSigIdx)].cName : sOBDII_Signals[sigIdxMapLog.key(_wSigIdx)].cName);
+        QString cYAxisName = "";
+        cYAxisName.append((eMode == MODE_J1939) ? sJ1939_Signals[sigIdxMapLog.key(_wSigIdx)].cName : sOBDII_Signals[sigIdxMapLog.key(_wSigIdx)].cName);
+        cYAxisName.append(" ");
+        cYAxisName.append((eMode == MODE_J1939) ? sJ1939_Signals[sigIdxMapLog.key(_wSigIdx)].cUnits : sOBDII_Signals[sigIdxMapLog.key(_wSigIdx)].cUnits);
+        if(graphIdxMapLog.value(_wSigIdx) == 0) //If first graph
+        {
+            ui->widgetPlotLog->yAxis->setLabel(cYAxisName);
+            ui->widgetPlotLog->xAxis->setRange(logTimestampsLog[_wSigIdx].first(),logTimestampsLog[_wSigIdx].last());
+            ui->widgetPlotLog->yAxis->rescale(); //Basically an autoscale
+        }
+        else
+        {
+            ui->widgetPlotLog->yAxis2->setLabel(cYAxisName);
+            ui->widgetPlotLog->xAxis2->setRange(logTimestampsLog[_wSigIdx].first(),logTimestampsLog[_wSigIdx].last());
+            ui->widgetPlotLog->yAxis2->rescale(); //Basically an autoscale
+        }
+
+        ui->widgetPlotLog->replot();
     }
 }
 
@@ -347,7 +515,8 @@ void MainWindow::handleReadyRead()
     quint8 bytesAvailable = serial->bytesAvailable();
     if(!bReadingSerialMsg && bytesAvailable)
     {
-        bSerialMsgLength = serial->read(1U)[0]; //Assume perfect comms, first byte always length of bytes to follow
+        QByteArray qbFirstByte = serial->read(1U);
+        bSerialMsgLength = qbFirstByte[0]; //Assume perfect comms, first byte always length of bytes to follow
         bReadingSerialMsg = true;
         if(bytesAvailable > bSerialMsgLength) //Bigger, not equal because we already read 1
         {
@@ -366,21 +535,22 @@ void MainWindow::handleReadyRead()
 
 void MainWindow::readVirtualMsg()
 {
-    if(!fileIn->atEnd())
+    if(!fileInLive->atEnd())
     {
-        QList<QByteArray> line = fileIn->readLine().split(';');
+        QList<QByteArray> line = fileInLive->readLine().split(';');
         QByteArray qbCanId = QByteArray::fromHex(line[2]);
+        bool bExt = line[3].toUShort();
         QByteArray qbData = QByteArray::fromHex(line[9]);
         quint32 lCanId;
         quint16 wCanId;
-        if(eMode == MODE_J1939) //TODO this will exclude CANB data that is actually extended
+        if(bExt)
         {
-            quint32 lCanId = qFromBigEndian<quint32>(qbCanId);
+            lCanId = qFromBigEndian<quint32>(qbCanId);
             parseExtFrame(lCanId, qbData);
         }
         else
         {
-            quint16 wCanId = qFromBigEndian<quint16>(qbCanId);
+            wCanId = qFromBigEndian<quint16>(qbCanId);
             parseStdFrame(wCanId, qbData);
         }
     }
@@ -411,7 +581,7 @@ void MainWindow::logMsg(bool bExt, quint32 _lCanId, QByteArray _baRxMsg)
 {
     QTextStream stream(fileOut);
     double timeNow = (double)QDateTime::currentMSecsSinceEpoch()/1000.0;
-    stream << QString::number(timeNow, 'f', 6) << "," << QString::number(_lCanId,16).toUpper() << "," << _baRxMsg.toHex(0).toUpper() << "\n";
+    stream << "\n" << QString::number(timeNow, 'f', 6) << "," << QString::number(_lCanId,16).toUpper() << "," << (quint8)bExt << ","  << _baRxMsg.toHex(0).toUpper();
 }
 
 void MainWindow::parseExtFrame(quint32 _lCanId, QByteArray _baRxMsg)
@@ -426,47 +596,123 @@ void MainWindow::parseExtFrame(quint32 _lCanId, QByteArray _baRxMsg)
     quint16 wPgn = (_lCanId >> 8) & 0xFFFF;
     quint8 bSourceAddress = _lCanId & 0xFF;
     quint64 dlRawVal = qFromLittleEndian<quint64>(_baRxMsg); //Whole message is 64 bits or 8 bytes
+    quint16 wSigIndex;
         for(quint8 j=0;j<wJ1939SignalCount;j++)
         {
             sJ1939_Signal_t J1939_Sig = sJ1939_Signals[j];
-            if((J1939_Sig.wPgn == wPgn) && (J1939_Sig.bSourceAddress == bSourceAddress))
+            if((J1939_Sig.wPgn == wPgn) && (J1939_Sig.bSourceAddressFilter?(J1939_Sig.bSourceAddress == bSourceAddress):true))
             {
                 messageDecodable = true;
+                wSigIndex = j;
                 //Take only the part of the message that contains the bits for this signal
                 QBitArray btaBitMask(J1939_Sig.bLengthInBits,true);
                 quint32 lRawVal = (dlRawVal >> J1939_Sig.bStartBit) & btaBitMask.toUInt32(QSysInfo::LittleEndian); //No single signal is bigger than 32 bits
                 float fFinalVal = lRawVal*J1939_Sig.fScale + J1939_Sig.fOffset;
 //                qDebug() << J1939_Sig.cName << ":" << fFinalVal << J1939_Sig.cUnits << "\n";
-                //First append to bigger list till desired index
-                while(qlLogValuesJ1939.length() <= j)
+
+                bool bNewMsgType = false;
+                if(!sigIdxMapLive.contains(wSigIndex))
                 {
+                    bNewMsgType = true;
                     QList<double> emptyList;
-                    qlLogValuesJ1939.append(emptyList);
+                    logValuesLiveJ1939.append(emptyList);
                     QList<double> emptyList2;
-                    qlLogTimestampsJ1939.append(emptyList2);
+                    logTimestampsLiveJ1939.append(emptyList2);
+                    sigIdxMapLive.insert(wSigIndex, logValuesLiveJ1939.count() - 1); //Could have used values or timestamps count
                 }
-                //TODO add below if the rolling buffer if we, so the size does not grow
-                if(qlLogValuesJ1939[j].length() > bLOG_LEN_MAX) //Rolling buffer, if bigger then remove value from start
+                //Keep display buff length to size
+                if(logValuesLiveJ1939[sigIdxMapLive[wSigIndex]].length() > bLOG_LEN_MAX) //Rolling buffer, if bigger then remove value from start
                 {
-                    qlLogValuesJ1939[j].takeFirst();//Remove element at start
-                    qlLogTimestampsJ1939[j].takeFirst();
+                    logValuesLiveJ1939[sigIdxMapLive[wSigIndex]].takeFirst();//Remove element at start
+                    logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]].takeFirst();
                 }
-                //Now append to smaller list inside bigger list
-                qlLogValuesJ1939[j].append(fFinalVal);
-                qlLogTimestampsJ1939[j].append(static_cast<double>(QDateTime::currentMSecsSinceEpoch())/1000.0);
+                //Now add
+                logValuesLiveJ1939[sigIdxMapLive[wSigIndex]].append(fFinalVal);
+                logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]].append(static_cast<double>(QDateTime::currentMSecsSinceEpoch())/1000.0);
+
                 //Update the GUI with new data
-                static_cast<QCheckBox*>(gridLive->itemAtPosition(j,0)->widget())->setText(J1939_Sig.cName);
-                static_cast<QLineEdit*>(gridLive->itemAtPosition(j,1)->widget())->setText(QString::number(fFinalVal));
-                static_cast<QLabel*>(gridLive->itemAtPosition(j,2)->widget())->setText(J1939_Sig.cUnits);
-                ui->scrollAreaLiveWidget->update(); //To prevent strange screen tearing bug when scrolling
-                if(qhGraphIdxMap.contains(j))
+                if(bNewMsgType){
+                    QCheckBox *sigCheck = new QCheckBox(J1939_Sig.cName, ui->scrollAreaLiveWidget);
+                    QLineEdit *sigVal = new QLineEdit(QString::number(fFinalVal),ui->scrollAreaLiveWidget);
+                    sigVal->setMinimumWidth(75);
+                    QLabel *sigUnits = new QLabel(J1939_Sig.cUnits,ui->scrollAreaLiveWidget);
+                    gridLive->addWidget(sigCheck,sigIdxMapLive[wSigIndex],0);
+                    gridLive->addWidget(sigVal,sigIdxMapLive[wSigIndex],1);
+                    gridLive->addWidget(sigUnits,sigIdxMapLive[wSigIndex],2);
+                    //Connect all the signals' checkbox events
+                    connect(sigCheck,&QCheckBox::stateChanged,this, [=](){
+                        checkboxClickedLive(sigIdxMapLive[wSigIndex]);
+                    });
+                }
+                else //Just update the value
                 {
-                   ui->widgetPlotLive->graph(qhGraphIdxMap.value(j))->setData(qlLogTimestampsJ1939[j],qlLogValuesJ1939[j]);
-                   ui->widgetPlotLive->yAxis->setLabel(J1939_Sig.cUnits);
-                   ui->widgetPlotLive->xAxis->setRange(qlLogTimestampsJ1939[j].first(), qlLogTimestampsJ1939[j].last());
-                   ui->widgetPlotLive->yAxis->rescale(); //Basically an autoscale
+                    static_cast<QLineEdit*>(gridLive->itemAtPosition(sigIdxMapLive[wSigIndex],1)->widget())->setText(QString::number(fFinalVal));
+                }
+
+                ui->scrollAreaLiveWidget->update(); //To prevent strange screen tearing bug when scrolling
+                if(graphIdxMapLive.contains(sigIdxMapLive[wSigIndex]))
+                {
+                   ui->widgetPlotLive->graph(graphIdxMapLive.value(sigIdxMapLive[wSigIndex]))->setData(logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]],logValuesLiveJ1939[sigIdxMapLive[wSigIndex]]);
+                   ui->widgetPlotLive->graph(graphIdxMapLive.value(wSigIndex))->setName(J1939_Sig.cName);
+
+                   QString cYAxisName = "";
+                   cYAxisName.append(J1939_Sig.cName);
+                   cYAxisName.append(" ");
+                   cYAxisName.append(J1939_Sig.cUnits);
+                   if(graphIdxMapLive.value(sigIdxMapLive[wSigIndex]) == 0) //If first graph
+                   {
+                       ui->widgetPlotLive->yAxis->setLabel(cYAxisName);
+                       ui->widgetPlotLive->xAxis->setRange(logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]].first(), logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]].last());
+                       ui->widgetPlotLive->yAxis->rescale(); //Basically an autoscale
+                   }
+                   else
+                   {
+                       ui->widgetPlotLive->yAxis2->setLabel(cYAxisName);
+                       ui->widgetPlotLive->xAxis2->setRange(logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]].first(), logTimestampsLiveJ1939[sigIdxMapLive[wSigIndex]].last());
+                       ui->widgetPlotLive->yAxis2->rescale(); //Basically an autoscale
+                   }
                    ui->widgetPlotLive->replot();
                 }
+            }
+        }
+        if(!messageDecodable)
+        {
+            QString hexCanId = QString::number( _lCanId, 16 );
+            qDebug() << "Unknown extended frame message" << "CAN ID:" << hexCanId <<"\n";
+        }
+}
+
+void MainWindow::parseLogExtFrame(double _dTimestamp, quint32 _lCanId, QByteArray _baRxMsg)
+{
+    //TODO determine first if we the vehicle is on the J1939 standard, the CANB mode can also send its extended proprietary data here
+    bool messageDecodable = false;
+    quint16 wPgn = (_lCanId >> 8) & 0xFFFF;
+    quint8 bSourceAddress = _lCanId & 0xFF;
+    quint64 dlRawVal = qFromLittleEndian<quint64>(_baRxMsg); //Whole message is 64 bits or 8 bytes
+    quint16 wSigIndex;
+    sJ1939_Signal_t J1939_Sig;
+        for(quint8 j=0;j<wJ1939SignalCount;j++) //Assume for now that all extended is J1939, TODO expand, the CANB messages that are extended will also come here
+        {
+            J1939_Sig = sJ1939_Signals[j];
+            if((J1939_Sig.wPgn == wPgn) && (J1939_Sig.bSourceAddressFilter?(J1939_Sig.bSourceAddress == bSourceAddress):true))
+            {
+                messageDecodable = true;
+                wSigIndex = j;
+                //Take only the part of the message that contains the bits for this signal
+                QBitArray btaBitMask(J1939_Sig.bLengthInBits,true);
+                quint32 lRawVal = (dlRawVal >> J1939_Sig.bStartBit) & btaBitMask.toUInt32(QSysInfo::LittleEndian); //No single signal is bigger than 32 bits
+                float fFinalVal = lRawVal*J1939_Sig.fScale + J1939_Sig.fOffset;
+                qDebug() << J1939_Sig.cName << ":" << fFinalVal << J1939_Sig.cUnits << "\n";
+                if(!sigIdxMapLog.contains(wSigIndex))
+                {
+                    QList<double> emptyList;
+                    logValuesLog.append(emptyList);
+                    QList<double> emptyList2;
+                    logTimestampsLog.append(emptyList2);
+                    sigIdxMapLog.insert(wSigIndex, logValuesLog.count() - 1); //Could have used values or timestamps count
+                }
+                logValuesLog[sigIdxMapLog[wSigIndex]].append(fFinalVal);
+                logTimestampsLog[sigIdxMapLog[wSigIndex]].append(_dTimestamp); //From CSV file
             }
         }
         if(!messageDecodable)
@@ -495,13 +741,13 @@ void MainWindow::parseStdFrame(quint16 _wCanAddr, QByteArray _baRxMsg)
             qbPid.append(_baRxMsg[2]);//PID here is actually just 1 byte, sending as 2 to fit service 0x22 PIDs too
             qbPid.append((quint8)0x00);
             quint16 wPid = qFromLittleEndian<quint16>(qbPid);;
-            decodeOBIIMsg(wPid, _baRxMsg.sliced(3,dataBytes));
+            decodeOBDIIMsg(wPid, _baRxMsg.sliced(3,dataBytes));
         }
         else if(0x62) //Proprietary extended mode 0x22 + 0x40 (see Wikipedia OBDII)
         {
             quint8 dataBytes = _baRxMsg[0] - 3; //Minus service code and 2 byte pid code
             quint16 wPid = qFromLittleEndian<quint16>(_baRxMsg.sliced(2,2));
-            decodeOBIIMsg(wPid, _baRxMsg.sliced(4,dataBytes));
+            decodeOBDIIMsg(wPid, _baRxMsg.sliced(4,dataBytes));
         }
         else //Other services like diagnostics 05 etc.
         {
@@ -518,7 +764,50 @@ void MainWindow::parseStdFrame(quint16 _wCanAddr, QByteArray _baRxMsg)
     }
 }
 
-void MainWindow::decodeOBIIMsg(quint16 _wPid, QByteArray _baRxMsg)
+
+void MainWindow::parseLogStdFrame(double _dTimestamp, quint16 _wCanAddr, QByteArray _baRxMsg)
+{
+    //Save message to file
+    if(bLoggingActive)
+    {
+        logMsg(false, _wCanAddr, _baRxMsg);
+    }
+    qDebug() << QString::number(_wCanAddr,16) << _baRxMsg.toHex() << "\n";
+    //We request from service 0x01 and 0x22
+    if(_wCanAddr == 0x7E8) //ECU replying to our request
+    {
+        quint8 serviceCode = _baRxMsg[1];
+        if(serviceCode == 0x41) //Current data 0x01 + 0x40 (see Wikipedia OBDII)
+        {
+            quint8 dataBytes = _baRxMsg[0] - 2; //Minus service code and 1 byte pid code
+            QByteArray qbPid;
+            qbPid.append(_baRxMsg[2]);//PID here is actually just 1 byte, sending as 2 to fit service 0x22 PIDs too
+            qbPid.append((quint8)0x00);
+            quint16 wPid = qFromLittleEndian<quint16>(qbPid);;
+            decodeOBDIILogMsg(_dTimestamp, wPid, _baRxMsg.sliced(3,dataBytes));
+        }
+        else if(0x62) //Proprietary extended mode 0x22 + 0x40 (see Wikipedia OBDII)
+        {
+            quint8 dataBytes = _baRxMsg[0] - 3; //Minus service code and 2 byte pid code
+            quint16 wPid = qFromLittleEndian<quint16>(_baRxMsg.sliced(2,2));
+            decodeOBDIILogMsg(_dTimestamp, wPid, _baRxMsg.sliced(4,dataBytes));
+        }
+        else //Other services like diagnostics 05 etc.
+        {
+            //TODO
+        }
+    }
+    else if(_wCanAddr == 0x7DF)
+    {
+        qDebug() << "Own broadcast 0x7DF msg\n";
+    }
+    else //Sensors sending their own data on CAN, not responses to our requests
+    {
+        decodePropMsg(_wCanAddr, _baRxMsg);
+    }
+}
+
+void MainWindow::decodeOBDIIMsg(quint16 _wPid, QByteArray _baRxMsg)
 {
 //    qDebug() << _baRxMsg.toHex();
     bool messageDecodable = false;
@@ -529,135 +818,85 @@ void MainWindow::decodeOBIIMsg(quint16 _wPid, QByteArray _baRxMsg)
         fB = (quint8)_baRxMsg[1];  //Force unsigned, otherwise it can intepret as int
     }
     float fFinalVal = 0;
-    quint16 wSignalIdx;
+    quint16 wSigIndex;
     for(quint16 i = 0U; i < wOBDIISignalCount;i++)
     {
         if(sOBDII_Signals[i].wPid == _wPid)
         {
-            wSignalIdx = i;
+            wSigIndex = i;
             messageDecodable = true;
             break; //Out of for loop
         }
     }
-    switch (_wPid) {
-    case PID_ENGINE_SPEED:
-    {
-        fFinalVal = (fA*256.0 +fB)/4.0; //0|16383.75
-    }
-    break;
-    case PID_VEHICLE_SPEED:
-    {
-        fFinalVal = fA; //0|255
-    }
-    break;
-    case PID_ENGINE_LOAD:
-    {
-        fFinalVal = fA/255.0; //0|100
-    }
-    break;
-    case PID_COOLANT_TEMP:
-    {
-        fFinalVal = fA - 40.0; //-40|215
-    }
-    break;
-    case PID_INTAKE_MANIFOLD_ABS_PRESS:
-    {
-        fFinalVal = fA; //0|255
-    }
-    break;
-    case PID_ABS_BAROMETRIC_PRESS:
-    {
-        fFinalVal = fA; //0|255
-    }
-    break;
-    case PID_AMB_AIR_TEMP:
-    {
-        fFinalVal = fA - 40.0; //-40|215
-    }
-    break;
-    case PID_ACCEL_POS_D:
-    {
-        fFinalVal = fA*(100.0/255.0); //0|100
-    }
-    break;
-    case PID_ACCEL_POS_E:
-    {
-        fFinalVal = fA*(100.0/255.0); //0|100
-    }
-    break;
-    case PID_THROTTLE_POS:
-    {
-        fFinalVal = fA*(100.0/255.0); //0|100
-    }
-    break;
-    case PID_ENGINE_OIL_TEMP:
-    {
-        fFinalVal = fA - 40.0; //-40|210
-    }
-    break;
-    case PID_ENGINE_RUNTIME:
-    {
-        fFinalVal = fA*256.0 + fB;
-    }
-    break;
-    case PID_MAF_RATE:
-    {
-        fFinalVal = (fA*256.0 +fB)/100.0; //0|16383.75
-    }
-    break;
-    case PID_FUEL_RAIL_GAUGE_PRESS:
-    {
-        fFinalVal = 10.0*(fA*256.0 +fB); //0|655350
-    }
-    break;
-    case PID_CTL_MODULE_VOLT:
-    {
-        fFinalVal = (fA*256.0 +fB)/1000.0; //0|65.535
-    }
-    case PID_REL_THROTTLE_POS:
-    {
-        fFinalVal = (100.0/255.0)*fA; //0|100
-    }
-    break;
-    case PID_REL_ACCEL_POS:
-    {
-        fFinalVal = (100.0/255.0)*fA; //0|100
-    }
-    break;
-    default:
-        break;
-    }
     if(messageDecodable)
     {
-        sOBDII_Signal_t OBDII_Sig = sOBDII_Signals[wSignalIdx];
+        fFinalVal = mapOBDIIToVal(_wPid, fA, fB);
+
+        sOBDII_Signal_t OBDII_Sig = sOBDII_Signals[wSigIndex];
         qDebug() << OBDII_Sig.cName << fFinalVal << OBDII_Sig.cUnits << "\n";
-        //First append to bigger list till desired index
-        while(qlLogValuesOBDII.length() <= wSignalIdx)
+
+        bool bNewMsgType = false;
+        if(!sigIdxMapLive.contains(wSigIndex))
         {
+            bNewMsgType = true;
             QList<double> emptyList;
-            qlLogValuesOBDII.append(emptyList);
+            logValuesLiveOBDII.append(emptyList);
             QList<double> emptyList2;
-            qlLogTimestampsOBDII.append(emptyList2);
+            logTimestampsLiveOBDII.append(emptyList2);
+            sigIdxMapLive.insert(wSigIndex, logValuesLiveOBDII.count() - 1); //Could have used values or timestamps count
         }
-        //Rolling buffer
-        if(qlLogValuesOBDII[wSignalIdx].length() > bLOG_LEN_MAX) //Rolling buffer, if bigger then remove value from start
+        //Keep display buff length to size
+        if(logValuesLiveOBDII[sigIdxMapLive[wSigIndex]].length() > bLOG_LEN_MAX) //Rolling buffer, if bigger then remove value from start
         {
-            qlLogValuesOBDII[wSignalIdx].takeFirst();//Remove element at start
-            qlLogTimestampsOBDII[wSignalIdx].takeFirst();
+            logValuesLiveOBDII[sigIdxMapLive[wSigIndex]].takeFirst();//Remove element at start
+            logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]].takeFirst();
         }
-        qlLogValuesOBDII[wSignalIdx].append(fFinalVal);
-        qlLogTimestampsOBDII[wSignalIdx].append(static_cast<double>(QDateTime::currentMSecsSinceEpoch())/1000.0);
+        //Now add
+        logValuesLiveOBDII[sigIdxMapLive[wSigIndex]].append(fFinalVal);
+        logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]].append(static_cast<double>(QDateTime::currentMSecsSinceEpoch())/1000.0);
+
         //Update the GUI with new data
-        static_cast<QCheckBox*>(gridLive->itemAtPosition(wSignalIdx,0)->widget())->setText(OBDII_Sig.cName);
-        static_cast<QLineEdit*>(gridLive->itemAtPosition(wSignalIdx,1)->widget())->setText(QString::number(fFinalVal));
-        static_cast<QLabel*>(gridLive->itemAtPosition(wSignalIdx,2)->widget())->setText(OBDII_Sig.cUnits);
-        ui->scrollAreaLiveWidget->update(); //To prevent strange screen tearing bug when scrolling
-        if(qhGraphIdxMap.contains(wSignalIdx))
+        if(bNewMsgType){
+            QCheckBox *sigCheck = new QCheckBox(OBDII_Sig.cName, ui->scrollAreaLiveWidget);
+            QLineEdit *sigVal = new QLineEdit(QString::number(fFinalVal),ui->scrollAreaLiveWidget);
+            sigVal->setMinimumWidth(75);
+            QLabel *sigUnits = new QLabel(OBDII_Sig.cUnits,ui->scrollAreaLiveWidget);
+            gridLive->addWidget(sigCheck,sigIdxMapLive[wSigIndex],0);
+            gridLive->addWidget(sigVal,sigIdxMapLive[wSigIndex],1);
+            gridLive->addWidget(sigUnits,sigIdxMapLive[wSigIndex],2);
+            //Connect all the signals' checkbox events
+            connect(sigCheck,&QCheckBox::stateChanged,this, [=](){
+                checkboxClickedLive(sigIdxMapLive[wSigIndex]);
+            });
+        }
+        else //Just update the value
         {
-           ui->widgetPlotLive->graph(qhGraphIdxMap.value(wSignalIdx))->setData(qlLogTimestampsOBDII[wSignalIdx],qlLogValuesOBDII[wSignalIdx]);
-           ui->widgetPlotLive->yAxis->setLabel(OBDII_Sig.cUnits);
-           ui->widgetPlotLive->xAxis->setRange(qlLogTimestampsOBDII[wSignalIdx].first(), qlLogTimestampsOBDII[wSignalIdx].last());
-           ui->widgetPlotLive->yAxis->rescale(); //Basically an autoscale
+            static_cast<QLineEdit*>(gridLive->itemAtPosition(sigIdxMapLive[wSigIndex],1)->widget())->setText(QString::number(fFinalVal));
+        }
+
+
+        ui->scrollAreaLiveWidget->update(); //To prevent strange screen tearing bug when scrolling
+        if(graphIdxMapLive.contains(sigIdxMapLive[wSigIndex]))
+        {
+           ui->widgetPlotLive->graph(graphIdxMapLive.value(sigIdxMapLive[wSigIndex]))->setData(logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]],logValuesLiveOBDII[sigIdxMapLive[wSigIndex]]);
+           ui->widgetPlotLive->graph(graphIdxMapLive.value(wSigIndex))->setName(OBDII_Sig.cName);
+
+           QString cYAxisName = "";
+           cYAxisName.append(OBDII_Sig.cName);
+           cYAxisName.append(" ");
+           cYAxisName.append(OBDII_Sig.cUnits);
+           if(graphIdxMapLive.value(sigIdxMapLive[wSigIndex]) == 0) //If first graph
+           {
+               ui->widgetPlotLive->yAxis->setLabel(cYAxisName);
+               ui->widgetPlotLive->xAxis->setRange(logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]].first(), logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]].last());
+               ui->widgetPlotLive->yAxis->rescale(); //Basically an autoscale
+           }
+           else
+           {
+               ui->widgetPlotLive->yAxis2->setLabel(cYAxisName);
+               ui->widgetPlotLive->xAxis2->setRange(logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]].first(), logTimestampsLiveOBDII[sigIdxMapLive[wSigIndex]].last());
+               ui->widgetPlotLive->yAxis2->rescale(); //Basically an autoscale
+           }
            ui->widgetPlotLive->replot();
         }
     }
@@ -666,10 +905,142 @@ void MainWindow::decodeOBIIMsg(quint16 _wPid, QByteArray _baRxMsg)
         qDebug() << QString::number( _wPid, 16 )  << "\n";
         qDebug() << "OBDII signal not decodable";
     }
+}
 
+void MainWindow::decodeOBDIILogMsg(double _dTimestamp, quint16 _wPid, QByteArray _baRxMsg)
+{
+    bool messageDecodable = false;
+    float fA = (quint8)_baRxMsg[0]; //Force unsigned, otherwise it can intepret as int
+    float fB = 0.0;
+    if(_baRxMsg.count() > 1U)
+    {
+        fB = (quint8)_baRxMsg[1];  //Force unsigned, otherwise it can intepret as int
+    }
+    float fFinalVal = 0;
+    quint16 wSigIndex;
+    for(quint16 i = 0U; i < wOBDIISignalCount;i++)
+    {
+        if(sOBDII_Signals[i].wPid == _wPid)
+        {
+            wSigIndex = i;
+            messageDecodable = true;
+            break; //Out of for loop
+        }
+    }
+    if(messageDecodable)
+    {
+        fFinalVal = mapOBDIIToVal(_wPid, fA, fB);
+
+        sOBDII_Signal_t OBDII_Sig = sOBDII_Signals[wSigIndex];
+        qDebug() << OBDII_Sig.cName << fFinalVal << OBDII_Sig.cUnits << "\n";
+        if(!sigIdxMapLog.contains(wSigIndex))
+        {
+            QList<double> emptyList;
+            logValuesLog.append(emptyList);
+            QList<double> emptyList2;
+            logTimestampsLog.append(emptyList2);
+            sigIdxMapLog.insert(wSigIndex, logValuesLog.count() - 1); //Could have used values or timestamps count
+        }
+        logValuesLog[sigIdxMapLog[wSigIndex]].append(fFinalVal);
+        logTimestampsLog[sigIdxMapLog[wSigIndex]].append(_dTimestamp); //From CSV file
+    }
 }
 
 void MainWindow::decodePropMsg(quint16 _wCanAddr, QByteArray _baRxMsg)
 {
     qDebug() << "Proprietary message\n";
+}
+
+float MainWindow::mapOBDIIToVal(quint16 _wPid, float _fA, float _fB)
+{
+    float fFinalVal = 0;
+    switch (_wPid) {
+    case PID_ENGINE_SPEED:
+    {
+        fFinalVal = (_fA*256.0 +_fB)/4.0; //0|16383.75
+    }
+    break;
+    case PID_VEHICLE_SPEED:
+    {
+        fFinalVal = _fA; //0|255
+    }
+    break;
+    case PID_ENGINE_LOAD:
+    {
+        fFinalVal = _fA/255.0; //0|100
+    }
+    break;
+    case PID_COOLANT_TEMP:
+    {
+        fFinalVal = _fA - 40.0; //-40|215
+    }
+    break;
+    case PID_INTAKE_MANIFOLD_ABS_PRESS:
+    {
+        fFinalVal = _fA; //0|255
+    }
+    break;
+    case PID_ABS_BAROMETRIC_PRESS:
+    {
+        fFinalVal = _fA; //0|255
+    }
+    break;
+    case PID_AMB_AIR_TEMP:
+    {
+        fFinalVal = _fA - 40.0; //-40|215
+    }
+    break;
+    case PID_ACCEL_POS_D:
+    {
+        fFinalVal = _fA*(100.0/255.0); //0|100
+    }
+    break;
+    case PID_ACCEL_POS_E:
+    {
+        fFinalVal = _fA*(100.0/255.0); //0|100
+    }
+    break;
+    case PID_THROTTLE_POS:
+    {
+        fFinalVal = _fA*(100.0/255.0); //0|100
+    }
+    break;
+    case PID_ENGINE_OIL_TEMP:
+    {
+        fFinalVal = _fA - 40.0; //-40|210
+    }
+    break;
+    case PID_ENGINE_RUNTIME:
+    {
+        fFinalVal = _fA*256.0 + _fB;
+    }
+    break;
+    case PID_MAF_RATE:
+    {
+        fFinalVal = (_fA*256.0 +_fB)/100.0; //0|16383.75
+    }
+    break;
+    case PID_FUEL_RAIL_GAUGE_PRESS:
+    {
+        fFinalVal = 10.0*(_fA*256.0 +_fB); //0|655350
+    }
+    break;
+    case PID_CTL_MODULE_VOLT:
+    {
+        fFinalVal = (_fA*256.0 +_fB)/1000.0; //0|65.535
+    }
+    case PID_REL_THROTTLE_POS:
+    {
+        fFinalVal = (100.0/255.0)*_fA; //0|100
+    }
+    break;
+    case PID_REL_ACCEL_POS:
+    {
+        fFinalVal = (100.0/255.0)*_fA; //0|100
+    }
+    break;
+    default:
+        break;
+    }
+    return fFinalVal;
 }
