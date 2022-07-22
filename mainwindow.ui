@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1038</width>
+    <width>1067</width>
     <height>660</height>
    </rect>
   </property>
@@ -64,61 +64,6 @@
        </item>
        <item row="0" column="2" rowspan="2">
         <widget class="QPlainTextEdit" name="pteTerminal"/>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QGroupBox" name="groupBox_4">
-      <property name="title">
-       <string>Mode</string>
-      </property>
-      <layout class="QGridLayout" name="gridLayout_3">
-       <property name="leftMargin">
-        <number>5</number>
-       </property>
-       <property name="topMargin">
-        <number>5</number>
-       </property>
-       <property name="rightMargin">
-        <number>5</number>
-       </property>
-       <property name="bottomMargin">
-        <number>5</number>
-       </property>
-       <item row="0" column="0">
-        <widget class="QComboBox" name="cbActivate"/>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="0" column="1">
-     <widget class="QGroupBox" name="groupBox_2">
-      <property name="title">
-       <string>Virtual data</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-      </property>
-      <layout class="QGridLayout" name="gridLayout_5">
-       <property name="leftMargin">
-        <number>5</number>
-       </property>
-       <property name="topMargin">
-        <number>5</number>
-       </property>
-       <property name="rightMargin">
-        <number>5</number>
-       </property>
-       <property name="bottomMargin">
-        <number>5</number>
-       </property>
-       <item row="0" column="0">
-        <widget class="QPushButton" name="pbVirtualRead">
-         <property name="text">
-          <string>Start</string>
-         </property>
-        </widget>
        </item>
       </layout>
      </widget>
@@ -214,8 +159,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>425</width>
-                 <height>428</height>
+                 <width>437</width>
+                 <height>445</height>
                 </rect>
                </property>
               </widget>
@@ -275,11 +220,45 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>248</width>
-                 <height>355</height>
+                 <width>256</width>
+                 <height>372</height>
                 </rect>
                </property>
               </widget>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tabCmd">
+           <attribute name="title">
+            <string>Command</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_9" rowstretch="1,0,0">
+            <item row="1" column="0">
+             <widget class="QGroupBox" name="groupBoxCmd">
+              <property name="title">
+               <string/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QComboBox" name="cbCmd"/>
+            </item>
+            <item row="2" column="0">
+             <widget class="QPushButton" name="pbCmd">
+              <property name="text">
+               <string>Send</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QGroupBox" name="groupBox_7">
+              <property name="title">
+               <string>GroupBox</string>
+              </property>
              </widget>
             </item>
            </layout>
@@ -291,37 +270,65 @@
      </widget>
     </item>
     <item row="1" column="2">
-     <widget class="QLabel" name="label_2">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
+     <widget class="QGroupBox" name="groupBox_4">
+      <property name="title">
+       <string>Mode</string>
       </property>
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>80</width>
-        <height>80</height>
-       </size>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="pixmap">
-       <pixmap resource="../build-TopDrywer-Qt_6_2_4_for_macOS-Debug/qmake_resources.qrc">:/icon.png</pixmap>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QComboBox" name="cbActivate"/>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="0" column="1" rowspan="2">
+     <widget class="QGroupBox" name="groupBox_2">
+      <property name="title">
+       <string>Virtual data</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
       </property>
+      <layout class="QGridLayout" name="gridLayout_5">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
+       </property>
+       <item row="1" column="0">
+        <widget class="QPushButton" name="pbVirtualRead">
+         <property name="text">
+          <string>Start</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QPushButton" name="pbVirtualFile">
+         <property name="text">
+          <string>Import CSV</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </widget>
     </item>
    </layout>
@@ -335,8 +342,6 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="../build-TopDrywer-Qt_6_2_4_for_macOS-Debug/qmake_resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

@@ -49,6 +49,7 @@ private:
     void checkboxClickedLog(quint16 _wSigIdx);
     void readVirtualMsg();
     void toggleVirtualRead();
+    void selectVirtualFile();
     void decodeOBDIIMsg(quint16 _wPid, QByteArray _baRxMsg);
     void decodeOBDIILogMsg(double _dTimestamp, quint16 _wPid, QByteArray _baRxMsg);
     float mapOBDIIToVal(quint16 _wPid, float _fA, float _fB);
@@ -57,8 +58,15 @@ private:
     void handleLog();
     void logMsg(bool bExt, quint32 _lCanId, QByteArray _baRxMsg);
     void selectLogFile();
+    void selectTruckManufacturer();
+    void selectTruckModel();
+    void selectCommand();
+    void sendCommand();
+    void sendSerial(QByteArray _qbCmd);
+    void tabLiveLogCmdChanged();
 };
 
+static const quint32 lMAX_LOG_FILE_SIZE = 3000000; //3MB (+-60k rows) if (1MB->20k rows)
 static const quint8 bUNITS_LEN_MAX = 6U;
 static const quint8 bPGN_NAME_LEN_MAX = 35U;
 static const quint8 bMSG_SIG_CNT_MAX = 10U;
